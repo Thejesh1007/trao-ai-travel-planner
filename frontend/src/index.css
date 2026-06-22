@@ -1,0 +1,5 @@
+/* These 3 lines import Tailwind's base styles, components, and utilities */
+/* Without these, no Tailwind classes will work */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
