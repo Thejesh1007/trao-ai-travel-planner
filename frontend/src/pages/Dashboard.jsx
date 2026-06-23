@@ -49,8 +49,17 @@ const Dashboard = () => {
     }
   };
 
+  // Called by ItineraryCard after a successful activity delete
+  // Updates both selectedTrip and the trips list so UI stays in sync
+  const handleTripUpdate = (updatedTrip) => {
+    setSelectedTrip(updatedTrip);
+    setTrips((prev) =>
+      prev.map((t) => (t._id === updatedTrip._id ? updatedTrip : t))
+    );
+  };
+
   // Creative feature: regenerate one day with user feedback
-  // POST /api/trips/:id/regenerate-day  { dayNumber, feedback }
+  // POST /api/trips/:id/regenerate-day { dayNumber, feedback }
   const handleRegenerateDay = async (dayNumber, feedback) => {
     if (!selectedTrip) return;
     setRegeneratingDay(dayNumber);
@@ -66,6 +75,18 @@ const Dashboard = () => {
       setError(err.response?.data?.message || 'Failed to regenerate day.');
     } finally {
       setRegeneratingDay(null);
+    }
+  };
+
+  // Delete a trip entirely
+  const handleDeleteTrip = async (tripId) => {
+    try {
+      await API.delete(`/api/trips/${tripId}`);
+      const remaining = trips.filter((t) => t._id !== tripId);
+      setTrips(remaining);
+      setSelectedTrip(remaining.length > 0 ? remaining[0] : null);
+    } catch (err) {
+      console.error('Failed to delete trip', err);
     }
   };
 
@@ -99,6 +120,7 @@ const Dashboard = () => {
       )}
 
       <main className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-8">
+
         {/* Left column: trip list + budget + form */}
         <div className="space-y-6">
           <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6">
@@ -117,18 +139,30 @@ const Dashboard = () => {
             ) : (
               <div className="space-y-3">
                 {trips.map((trip) => (
-                  <button
-                    key={trip._id}
-                    onClick={() => setSelectedTrip(trip)}
-                    className={`w-full text-left p-4 rounded-xl transition ${
-                      selectedTrip?._id === trip._id
-                        ? 'bg-blue-600 border border-blue-500 text-white'
-                        : 'bg-slate-800 border border-slate-700 text-slate-300 hover:bg-slate-700'
-                    }`}
-                  >
-                    <p className="font-bold">{trip.destination}</p>
-                    <p className="text-xs opacity-80">{trip.durationDays} Days • {trip.budgetTier} Budget</p>
-                  </button>
+                  <div key={trip._id} className="relative group">
+                    <button
+                      onClick={() => setSelectedTrip(trip)}
+                      className={`w-full text-left p-4 rounded-xl transition ${
+                        selectedTrip?._id === trip._id
+                          ? 'bg-blue-600 border border-blue-500 text-white'
+                          : 'bg-slate-800 border border-slate-700 text-slate-300 hover:bg-slate-700'
+                      }`}
+                    >
+                      <p className="font-bold">{trip.destination}</p>
+                      <p className="text-xs opacity-80">
+                        {trip.durationDays} Days • {trip.budgetTier} Budget
+                      </p>
+                    </button>
+
+                    {/* Delete trip button — appears on hover */}
+                    <button
+                      onClick={() => handleDeleteTrip(trip._id)}
+                      title="Delete trip"
+                      className="absolute top-2 right-2 text-slate-600 hover:text-red-400 transition text-xs opacity-0 group-hover:opacity-100"
+                    >
+                      ✕
+                    </button>
+                  </div>
                 ))}
               </div>
             )}
@@ -142,19 +176,27 @@ const Dashboard = () => {
               <div className="space-y-3">
                 <div className="flex justify-between text-sm">
                   <span className="text-slate-400">Flights</span>
-                  <span className="font-semibold text-white">${selectedTrip.estimatedBudget?.flights ?? selectedTrip.estimatedBudget?.transport ?? 0}</span>
+                  <span className="font-semibold text-white">
+                    ${selectedTrip.estimatedBudget?.flights ?? selectedTrip.estimatedBudget?.transport ?? 0}
+                  </span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-slate-400">Accommodation</span>
-                  <span className="font-semibold text-white">${selectedTrip.estimatedBudget?.accommodation ?? 0}</span>
+                  <span className="font-semibold text-white">
+                    ${selectedTrip.estimatedBudget?.accommodation ?? 0}
+                  </span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-slate-400">Food</span>
-                  <span className="font-semibold text-white">${selectedTrip.estimatedBudget?.food ?? 0}</span>
+                  <span className="font-semibold text-white">
+                    ${selectedTrip.estimatedBudget?.food ?? 0}
+                  </span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-slate-400">Activities</span>
-                  <span className="font-semibold text-white">${selectedTrip.estimatedBudget?.activities ?? 0}</span>
+                  <span className="font-semibold text-white">
+                    ${selectedTrip.estimatedBudget?.activities ?? 0}
+                  </span>
                 </div>
                 <div className="flex justify-between text-sm border-t border-slate-800 pt-3 text-white font-bold">
                   <span>Total</span>
@@ -178,6 +220,8 @@ const Dashboard = () => {
                     <ItineraryCard
                       key={day.dayNumber}
                       day={day}
+                      tripId={selectedTrip._id}
+                      onTripUpdate={handleTripUpdate}
                       onRegenerate={handleRegenerateDay}
                       regenerating={regeneratingDay === day.dayNumber}
                     />
@@ -194,6 +238,7 @@ const Dashboard = () => {
             </div>
           )}
         </div>
+
       </main>
     </div>
   );
